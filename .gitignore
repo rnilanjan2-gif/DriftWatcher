@@ -1,9 +1,31 @@
+
+# Python environments
 .venv/
 venv/
 __pycache__/
-*.pyc
-.ipynb_checkpoints/
+*.py[cod]
+.pytest_cache/
+
+# Secrets
 .env
+.env.*
+!.env.example
+
+# Backend - not deploying yet
+/backend/
+/data/
+/preprocessing/
+
+# Frontend dependencies and build
+/frontend/node_modules/
+/frontend/dist/
+
+# IDE
 .idea/
 .vscode/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Other
 commands.txt
