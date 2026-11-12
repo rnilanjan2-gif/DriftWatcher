@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 
-
-
 import {
 
   FlaskConical,
@@ -13,6 +11,7 @@ import {
   BarChart3,
 
   ArrowUpRight,
+
   ArrowDownRight,
 
   Database,
@@ -21,9 +20,9 @@ import {
 
   CalendarDays,
 
+  Trash2,
+
 } from "lucide-react";
-
-
 
 import Sidebar from "../components/Sidebar";
 
@@ -31,11 +30,22 @@ import Topbar from "../components/Topbar";
 
 import "../App.css";
 
-
-
 const WORKFLOW_STORAGE_KEY = "driftwatcher.workflowResult";
 
 const EXPERIMENT_HISTORY_KEY = "driftwatcher.experimentHistory";
+
+const DISMISSED_EXPERIMENT_KEYS = "driftwatcher.dismissedExperimentKeys";
+
+const readDismissedExperimentKeys = () => {
+  try {
+    const raw = localStorage.getItem(DISMISSED_EXPERIMENT_KEYS);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error("Failed to read dismissed experiment keys:", error);
+    return [];
+  }
+};
 
 const EXPERIMENT_HISTORY_VERSION_KEY =
 
@@ -47,8 +57,6 @@ const WORKFLOW_RECORDED_AT_FIELD =
 
   "__driftwatcher_experiment_recorded_at";
 
-
-
 const readWorkflowResult = () => {
 
   try {
@@ -58,8 +66,6 @@ const readWorkflowResult = () => {
       return window.__driftWatcherWorkflowResult;
 
     }
-
-
 
     const raw = localStorage.getItem(WORKFLOW_STORAGE_KEY);
 
@@ -75,8 +81,6 @@ const readWorkflowResult = () => {
 
 };
 
-
-
 const readExperimentHistory = () => {
 
   try {
@@ -86,8 +90,6 @@ const readExperimentHistory = () => {
       EXPERIMENT_HISTORY_VERSION_KEY
 
     );
-
-
 
     if (version !== EXPERIMENT_HISTORY_VERSION) {
 
@@ -99,29 +101,21 @@ const readExperimentHistory = () => {
 
       );
 
-
-
       localStorage.removeItem(EXPERIMENT_HISTORY_KEY);
 
       return [];
 
     }
 
-
-
     const raw = localStorage.getItem(EXPERIMENT_HISTORY_KEY);
 
     const parsed = raw ? JSON.parse(raw) : [];
-
-
 
     if (!Array.isArray(parsed)) {
 
       return [];
 
     }
-
-
 
     /*
 
@@ -139,8 +133,6 @@ const readExperimentHistory = () => {
 
     const seen = new Set();
 
-
-
     const deduplicated = parsed.filter((item) => {
 
       if (!item || typeof item !== "object") {
@@ -148,8 +140,6 @@ const readExperimentHistory = () => {
         return false;
 
       }
-
-
 
       const identity =
 
@@ -161,15 +151,11 @@ const readExperimentHistory = () => {
 
           : null);
 
-
-
       if (!identity) {
 
         return true;
 
       }
-
-
 
       if (seen.has(identity)) {
 
@@ -177,15 +163,11 @@ const readExperimentHistory = () => {
 
       }
 
-
-
       seen.add(identity);
 
       return true;
 
     });
-
-
 
     if (deduplicated.length !== parsed.length) {
 
@@ -199,8 +181,6 @@ const readExperimentHistory = () => {
 
     }
 
-
-
     return deduplicated;
 
   } catch (error) {
@@ -212,8 +192,6 @@ const readExperimentHistory = () => {
   }
 
 };
-
-
 
 const saveExperimentHistory = (history) => {
 
@@ -235,8 +213,6 @@ const saveExperimentHistory = (history) => {
 
 };
 
-
-
 const getNestedRetraining = (workflowResult) => {
 
   const wrapper = workflowResult?.retraining || {};
@@ -245,13 +221,9 @@ const getNestedRetraining = (workflowResult) => {
 
 };
 
-
-
 const getCurrentMetrics = (workflowResult) => {
 
   const retraining = getNestedRetraining(workflowResult);
-
-
 
   return {
 
@@ -263,13 +235,9 @@ const getCurrentMetrics = (workflowResult) => {
 
 };
 
-
-
 const getCandidateMetrics = (workflowResult) => {
 
   const retraining = getNestedRetraining(workflowResult);
-
-
 
   return {
 
@@ -281,13 +249,9 @@ const getCandidateMetrics = (workflowResult) => {
 
 };
 
-
-
 const getComparison = (workflowResult) => {
 
   const retraining = getNestedRetraining(workflowResult);
-
-
 
   return (
 
@@ -300,8 +264,6 @@ const getComparison = (workflowResult) => {
   );
 
 };
-
-
 
 const METRIC_LABELS = {
 
@@ -323,8 +285,6 @@ const METRIC_LABELS = {
 
 };
 
-
-
 const METRIC_ALIASES = {
 
   accuracy: ["accuracy"],
@@ -345,8 +305,6 @@ const METRIC_ALIASES = {
 
 };
 
-
-
 const PERCENT_METRICS = new Set([
 
   "accuracy",
@@ -358,8 +316,6 @@ const PERCENT_METRICS = new Set([
   "f1_score",
 
 ]);
-
-
 
 const HIGHER_IS_BETTER = new Set([
 
@@ -375,13 +331,9 @@ const HIGHER_IS_BETTER = new Set([
 
 ]);
 
-
-
 const normalizeMetricName = (value) => {
 
   if (!value) return null;
-
-
 
   const normalized = String(value)
 
@@ -391,23 +343,17 @@ const normalizeMetricName = (value) => {
 
     .replace(/[\s-]+/g, "_");
 
-
-
   if (normalized === "f1") {
 
     return "f1_score";
 
   }
 
-
-
   if (normalized === "r2") {
 
     return "r2_score";
 
   }
-
-
 
   return Object.prototype.hasOwnProperty.call(
 
@@ -423,21 +369,15 @@ const normalizeMetricName = (value) => {
 
 };
 
-
-
 const getMetricValue = (metrics, metric) => {
 
   const normalizedMetric = normalizeMetricName(metric);
-
-
 
   if (!normalizedMetric || !metrics) {
 
     return undefined;
 
   }
-
-
 
   for (const key of METRIC_ALIASES[normalizedMetric]) {
 
@@ -455,21 +395,15 @@ const getMetricValue = (metrics, metric) => {
 
   }
 
-
-
   return undefined;
 
 };
-
-
 
 const getMetricLabel = (metric) =>
 
   METRIC_LABELS[normalizeMetricName(metric)] ||
 
   "Primary Metric";
-
-
 
 const formatMetricValue = (value, metric) => {
 
@@ -487,19 +421,13 @@ const formatMetricValue = (value, metric) => {
 
   }
 
-
-
   const numeric = Number(value);
-
-
 
   if (Number.isNaN(numeric)) {
 
     return "—";
 
   }
-
-
 
   return PERCENT_METRICS.has(
 
@@ -512,8 +440,6 @@ const formatMetricValue = (value, metric) => {
     : numeric.toFixed(4);
 
 };
-
-
 
 const formatNumber = (value) => {
 
@@ -531,11 +457,7 @@ const formatNumber = (value) => {
 
   }
 
-
-
   const numeric = Number(value);
-
-
 
   return Number.isNaN(numeric)
 
@@ -544,8 +466,6 @@ const formatNumber = (value) => {
     : numeric.toLocaleString();
 
 };
-
-
 
 const formatModelName = (value) => {
 
@@ -561,8 +481,6 @@ const formatModelName = (value) => {
 
   }
 
-
-
   return String(value)
 
     .replace(/_/g, " ")
@@ -570,8 +488,6 @@ const formatModelName = (value) => {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 
 };
-
-
 
 const cleanFilename = (value) => {
 
@@ -581,19 +497,13 @@ const cleanFilename = (value) => {
 
   }
 
-
-
   const normalized = String(value);
 
   const parts = normalized.split(/[\\/]/);
 
-
-
   return parts[parts.length - 1] || normalized;
 
 };
-
-
 
 const formatDateTime = (value) => {
 
@@ -603,11 +513,7 @@ const formatDateTime = (value) => {
 
   }
 
-
-
   const parsed = new Date(value);
-
-
 
   return Number.isNaN(parsed.getTime())
 
@@ -616,8 +522,6 @@ const formatDateTime = (value) => {
     : parsed.toLocaleString();
 
 };
-
-
 
 const getPrimaryMetric = (
 
@@ -633,8 +537,6 @@ const getPrimaryMetric = (
 
   const comparison = getComparison(workflowResult);
 
-
-
   const explicitCandidates = [
 
     comparison?.primary_metric,
@@ -647,13 +549,9 @@ const getPrimaryMetric = (
 
   ];
 
-
-
   for (const candidate of explicitCandidates) {
 
     const normalized = normalizeMetricName(candidate);
-
-
 
     if (normalized) {
 
@@ -662,8 +560,6 @@ const getPrimaryMetric = (
     }
 
   }
-
-
 
   const problemType = String(
 
@@ -675,8 +571,6 @@ const getPrimaryMetric = (
 
   ).toLowerCase();
 
-
-
   const fallbackOrder =
 
     problemType === "regression"
@@ -684,8 +578,6 @@ const getPrimaryMetric = (
       ? ["rmse", "r2_score", "mae", "mse"]
 
       : ["recall", "f1_score", "accuracy", "precision"];
-
-
 
   for (const metric of fallbackOrder) {
 
@@ -703,13 +595,9 @@ const getPrimaryMetric = (
 
   }
 
-
-
   return null;
 
 };
-
-
 
 const getComparisonMetricValue = (
 
@@ -733,19 +621,13 @@ const getComparisonMetricValue = (
 
   }
 
-
-
   const normalizedMetric = normalizeMetricName(metric);
-
-
 
   if (!normalizedMetric) {
 
     return undefined;
 
   }
-
-
 
   const legacyKeys = {
 
@@ -761,8 +643,6 @@ const getComparisonMetricValue = (
 
     ],
 
-
-
     candidate_score: [
 
       `candidate_${normalizedMetric}`,
@@ -774,8 +654,6 @@ const getComparisonMetricValue = (
         : null,
 
     ],
-
-
 
     score_improvement: [
 
@@ -790,8 +668,6 @@ const getComparisonMetricValue = (
     ],
 
   };
-
-
 
   for (const legacyKey of legacyKeys[key] || []) {
 
@@ -811,13 +687,9 @@ const getComparisonMetricValue = (
 
   }
 
-
-
   return undefined;
 
 };
-
-
 
 const formatImprovement = (value, metric) => {
 
@@ -835,19 +707,13 @@ const formatImprovement = (value, metric) => {
 
   }
 
-
-
   const numeric = Number(value);
-
-
 
   if (Number.isNaN(numeric)) {
 
     return "—";
 
   }
-
-
 
   return PERCENT_METRICS.has(
 
@@ -869,120 +735,199 @@ const formatImprovement = (value, metric) => {
 
 };
 
-
-
 const getReadableText = (value) => {
+
   if (typeof value === "string") return value.trim();
+
   if (value === null || value === undefined) return "";
+
   if (typeof value === "object") {
+
     return (
+
       value.summary ||
+
       value.explanation ||
+
       value.reason ||
+
       value.message ||
+
       JSON.stringify(value, null, 2)
+
     );
+
   }
+
   return String(value);
+
 };
 
 const getEvaluationReason = (workflowResult) => {
+
   const comparison = getComparison(workflowResult);
+
   const retraining = getNestedRetraining(workflowResult);
 
   return getReadableText(
+
     comparison?.reason ||
+
       comparison?.rejection_reason ||
+
       comparison?.decision_reason ||
+
       retraining?.rejection_reason ||
+
       retraining?.reason ||
+
       workflowResult?.decision?.reason ||
+
       workflowResult?.decision?.explanation
+
   );
+
 };
 
 const getAgentReasoning = (workflowResult) => {
+
   const wrapper = workflowResult?.retraining || {};
+
   const retraining = getNestedRetraining(workflowResult);
 
   return getReadableText(
+
     wrapper?.reasoning ||
+
       wrapper?.analysis ||
+
       retraining?.reasoning ||
+
       retraining?.analysis
+
   );
+
 };
 
 const getMetricComparisonRows = (experiment) => {
+
   const current = experiment?.currentMetrics || {};
+
   const candidate = experiment?.candidateMetrics || {};
+
   const comparison =
+
     experiment?.comparison?.metric_comparison ||
+
     experiment?.comparison?.metrics_comparison ||
+
     {};
 
   const metricNames = [
+
     ...new Set([
+
       ...Object.keys(current).map(normalizeMetricName),
+
       ...Object.keys(candidate).map(normalizeMetricName),
+
       ...Object.keys(comparison).map(normalizeMetricName),
+
     ]),
+
   ].filter(Boolean);
 
   return metricNames.map((metric) => {
+
     const entry =
+
       comparison[metric] ||
+
       comparison[Object.keys(comparison).find(
+
         (key) => normalizeMetricName(key) === metric
+
       )] ||
+
       {};
 
     const currentValue =
+
       entry.current ?? getMetricValue(current, metric);
+
     const candidateValue =
+
       entry.candidate ?? getMetricValue(candidate, metric);
 
     let improvement = entry.improvement;
 
     if (
+
       improvement === undefined &&
+
       currentValue !== undefined &&
+
       candidateValue !== undefined
+
     ) {
+
       const currentNumber = Number(currentValue);
+
       const candidateNumber = Number(candidateValue);
 
       if (
+
         Number.isFinite(currentNumber) &&
+
         Number.isFinite(candidateNumber)
+
       ) {
+
         improvement = HIGHER_IS_BETTER.has(metric)
+
           ? candidateNumber - currentNumber
+
           : currentNumber - candidateNumber;
+
       }
+
     }
 
     let outcome = "Not compared";
+
     if (entry.improved === true) outcome = "Improved";
+
     else if (entry.improved === false) outcome = "Declined";
+
     else if (improvement !== undefined && Number(improvement) === 0) {
+
       outcome = "Unchanged";
+
     } else if (improvement !== undefined) {
+
       outcome = Number(improvement) > 0 ? "Improved" : "Declined";
+
     }
 
     return {
+
       metric,
+
       label: getMetricLabel(metric),
+
       currentValue,
+
       candidateValue,
+
       improvement,
+
       outcome,
+
     };
+
   });
+
 };
-
-
 
 const getWorkflowEventTime = (workflowResult) => {
 
@@ -1004,8 +949,6 @@ const getWorkflowEventTime = (workflowResult) => {
 
   ];
 
-
-
   for (const value of candidates) {
 
     if (!value) {
@@ -1014,11 +957,7 @@ const getWorkflowEventTime = (workflowResult) => {
 
     }
 
-
-
     const parsed = new Date(value);
-
-
 
     if (!Number.isNaN(parsed.getTime())) {
 
@@ -1028,19 +967,13 @@ const getWorkflowEventTime = (workflowResult) => {
 
   }
 
-
-
   return null;
 
 };
 
-
-
 const getExperimentId = (index = 0) =>
 
   `EXP-${String(index + 1).padStart(3, "0")}`;
-
-
 
 const getExperimentKey = (
 
@@ -1060,8 +993,6 @@ const getExperimentKey = (
 
     workflowResult?.action?.version;
 
-
-
   const generatedAt =
 
     recordedAt ||
@@ -1070,19 +1001,13 @@ const getExperimentKey = (
 
     "no-time";
 
-
-
   const currentMetrics =
 
     getCurrentMetrics(workflowResult);
 
-
-
   const candidateMetrics =
 
     getCandidateMetrics(workflowResult);
-
-
 
   const primaryMetric = getPrimaryMetric(
 
@@ -1094,8 +1019,6 @@ const getExperimentKey = (
 
   );
 
-
-
   const candidateScore = getMetricValue(
 
     candidateMetrics,
@@ -1103,8 +1026,6 @@ const getExperimentKey = (
     primaryMetric
 
   );
-
-
 
   return [
 
@@ -1120,8 +1041,6 @@ const getExperimentKey = (
 
 };
 
-
-
 const getNextExperimentIndex = (history) => {
 
   const ids = history
@@ -1132,21 +1051,15 @@ const getNextExperimentIndex = (history) => {
 
       const match = id.match(/^EXP-(\d+)$/i);
 
-
-
       return match ? Number(match[1]) : 0;
 
     })
 
     .filter((value) => Number.isFinite(value));
 
-
-
   return ids.length ? Math.max(...ids) : 0;
 
 };
-
-
 
 const buildExperiment = (
 
@@ -1166,31 +1079,21 @@ const buildExperiment = (
 
   }
 
-
-
   const retraining =
 
     getNestedRetraining(workflowResult);
-
-
 
   const currentMetrics =
 
     getCurrentMetrics(workflowResult);
 
-
-
   const candidateMetrics =
 
     getCandidateMetrics(workflowResult);
 
-
-
   const comparison =
 
     getComparison(workflowResult);
-
-
 
   const modelType =
 
@@ -1199,8 +1102,6 @@ const buildExperiment = (
     workflowResult?.model_type ||
 
     "unknown";
-
-
 
   const primaryMetric = getPrimaryMetric(
 
@@ -1211,8 +1112,6 @@ const buildExperiment = (
     candidateMetrics
 
   );
-
-
 
   const comparisonCurrent =
 
@@ -1226,8 +1125,6 @@ const buildExperiment = (
 
     );
 
-
-
   const comparisonCandidate =
 
     getComparisonMetricValue(
@@ -1240,8 +1137,6 @@ const buildExperiment = (
 
     );
 
-
-
   const comparisonImprovement =
 
     getComparisonMetricValue(
@@ -1253,8 +1148,6 @@ const buildExperiment = (
       primaryMetric
 
     );
-
-
 
   const currentMetric =
 
@@ -1270,8 +1163,6 @@ const buildExperiment = (
 
         );
 
-
-
   const candidateMetric =
 
     comparisonCandidate !== undefined
@@ -1286,8 +1177,6 @@ const buildExperiment = (
 
         );
 
-
-
   let improvement =
 
     comparisonImprovement !== undefined
@@ -1295,8 +1184,6 @@ const buildExperiment = (
       ? Number(comparisonImprovement)
 
       : null;
-
-
 
   if (
 
@@ -1311,8 +1198,6 @@ const buildExperiment = (
     const current = Number(currentMetric);
 
     const candidate = Number(candidateMetric);
-
-
 
     if (
 
@@ -1336,85 +1221,127 @@ const buildExperiment = (
 
   }
 
-
-
   const driftDetected = Boolean(
 
     workflowResult?.drift_detection?.drift_detected
 
   );
 
-
-
   const decisionText = String(
+
     workflowResult?.decision?.decision_result?.decision ||
+
       workflowResult?.decision?.decision ||
+
       ""
+
   ).toUpperCase();
 
   // Backend acceptance is authoritative. Only use the decision text
+
   // when the backend did not provide candidate_accepted.
+
   const accepted =
+
     typeof comparison?.candidate_accepted === "boolean"
+
       ? comparison.candidate_accepted
+
       : decisionText.includes("RETRAIN_AND_DEPLOY");
 
   const rejected =
+
     typeof comparison?.candidate_accepted === "boolean"
+
       ? comparison.candidate_accepted === false
+
       : decisionText.includes("REJECT") ||
+
         decisionText.includes("KEEP_CURRENT_MODEL");
 
   const problemType = String(
+
     retraining?.problem_type ||
+
       workflowResult?.problem_type ||
+
       ""
+
   ).toLowerCase();
 
   const displayMetric =
+
     problemType.includes("regress")
+
       ? primaryMetric
+
       : getMetricValue(candidateMetrics, "recall") !== undefined ||
+
         getMetricValue(currentMetrics, "recall") !== undefined
+
       ? "recall"
+
       : primaryMetric;
 
   const metricComparison =
+
     comparison?.metric_comparison ||
+
     comparison?.metrics_comparison ||
+
     {};
 
   const displayMetricEntry =
+
     metricComparison[displayMetric] ||
+
     metricComparison[Object.keys(metricComparison).find(
+
       (key) => normalizeMetricName(key) === displayMetric
+
     )] ||
+
     {};
 
   const displayMetricCurrent =
+
     displayMetricEntry.current ??
+
     getMetricValue(currentMetrics, displayMetric);
 
   const displayMetricCandidate =
+
     displayMetricEntry.candidate ??
+
     getMetricValue(candidateMetrics, displayMetric);
 
   const displayMetricImprovement =
+
     displayMetricEntry.improvement ??
+
     (
+
       displayMetricCurrent !== undefined &&
+
       displayMetricCandidate !== undefined
+
         ? (
+
             HIGHER_IS_BETTER.has(displayMetric)
+
               ? Number(displayMetricCandidate) -
+
                 Number(displayMetricCurrent)
+
               : Number(displayMetricCurrent) -
+
                 Number(displayMetricCandidate)
+
           )
+
         : null
+
     );
-
-
 
   const running = [
 
@@ -1434,15 +1361,11 @@ const buildExperiment = (
 
   );
 
-
-
   const action =
 
     workflowResult?.action?.action ||
 
     "Not executed";
-
-
 
   const actionStatus =
 
@@ -1450,15 +1373,11 @@ const buildExperiment = (
 
     "Not executed";
 
-
-
   const qualityIssues = Boolean(
 
     workflowResult?.data_quality?.issues_detected
 
   );
-
-
 
   const datasetConfig = (() => {
 
@@ -1470,8 +1389,6 @@ const buildExperiment = (
 
       );
 
-
-
       return raw ? JSON.parse(raw) : {};
 
     } catch {
@@ -1481,8 +1398,6 @@ const buildExperiment = (
     }
 
   })();
-
-
 
   const datasetValue =
 
@@ -1504,8 +1419,6 @@ const buildExperiment = (
 
     datasetConfig?.currentDatasetPath;
 
-
-
   return {
 
     key: getExperimentKey(
@@ -1516,19 +1429,11 @@ const buildExperiment = (
 
     ),
 
-
-
     id: getExperimentId(index),
-
-
 
     model: formatModelName(modelType),
 
-
-
     modelType,
-
-
 
     problemType:
 
@@ -1538,13 +1443,10 @@ const buildExperiment = (
 
       "unknown",
 
-
-
     primaryMetric,
 
-
-
     primaryMetricLabel:
+
       getMetricLabel(primaryMetric),
 
     displayMetric,
@@ -1564,22 +1466,26 @@ const buildExperiment = (
     agentReasoning: getAgentReasoning(workflowResult),
 
     recommendation: getReadableText(
+
       workflowResult?.retraining?.recommendation ||
+
         retraining?.recommendation ||
+
         workflowResult?.decision?.recommendation
+
     ),
 
     deploymentStatus: getReadableText(
+
       workflowResult?.action?.status ||
+
         workflowResult?.action?.action ||
+
         (accepted ? "Accepted; deployment status not recorded" : "Not deployed")
+
     ),
 
-
-
     dataset: cleanFilename(datasetValue),
-
-
 
     trigger: driftDetected
 
@@ -1587,23 +1493,23 @@ const buildExperiment = (
 
       : "Manual Workflow",
 
-
-
     status: running
+
       ? "RUNNING"
+
       : accepted
+
       ? "ACCEPTED"
+
       : rejected
+
       ? "REJECTED"
+
       : "EVALUATED",
-
-
 
     completed:
 
       workflowResult?.status === "completed",
-
-
 
     accepted,
 
@@ -1611,51 +1517,29 @@ const buildExperiment = (
 
     running,
 
-
-
     currentMetric,
-
-
 
     candidateMetric,
 
-
-
     improvement,
-
-
 
     currentMetrics,
 
-
-
     candidateMetrics,
-
-
 
     trainingRows:
 
       retraining?.training_rows,
 
-
-
     validationRows:
 
       retraining?.validation_rows,
 
-
-
     action,
-
-
 
     actionStatus,
 
-
-
     qualityIssues,
-
-
 
     timestamp:
 
@@ -1665,15 +1549,11 @@ const buildExperiment = (
 
       new Date().toISOString(),
 
-
-
     workflowResult,
 
   };
 
 };
-
-
 
 function Experiments() {
 
@@ -1681,13 +1561,12 @@ function Experiments() {
 
     useState(readWorkflowResult);
 
-
-
   const [history, setHistory] =
 
     useState(readExperimentHistory);
 
-
+  const [dismissedExperimentKeys, setDismissedExperimentKeys] =
+    useState(readDismissedExperimentKeys);
 
   useEffect(() => {
 
@@ -1698,8 +1577,6 @@ function Experiments() {
         return;
 
       }
-
-
 
       /*
 
@@ -1717,13 +1594,9 @@ function Experiments() {
 
       let stableResult = result;
 
-
-
       let recordedAt =
 
         getWorkflowEventTime(result);
-
-
 
       if (!recordedAt) {
 
@@ -1735,15 +1608,11 @@ function Experiments() {
 
           );
 
-
-
           if (storedRaw) {
 
             const storedWorkflow =
 
               JSON.parse(storedRaw);
-
-
 
             if (
 
@@ -1781,13 +1650,9 @@ function Experiments() {
 
       }
 
-
-
       if (!recordedAt) {
 
         recordedAt = new Date().toISOString();
-
-
 
         stableResult = {
 
@@ -1798,8 +1663,6 @@ function Experiments() {
             recordedAt,
 
         };
-
-
 
         try {
 
@@ -1841,11 +1704,13 @@ function Experiments() {
 
       }
 
-
+      const incomingKey = getExperimentKey(stableResult, recordedAt);
+      const dismissedKeys = readDismissedExperimentKeys();
+      if (dismissedKeys.includes(incomingKey)) {
+        return;
+      }
 
       setWorkflowResult(stableResult);
-
-
 
       setHistory((previous) => {
 
@@ -1857,19 +1722,13 @@ function Experiments() {
 
         );
 
-
-
         const currentMetrics =
 
           getCurrentMetrics(stableResult);
 
-
-
         const candidateMetrics =
 
           getCandidateMetrics(stableResult);
-
-
 
         const primaryMetric =
 
@@ -1883,8 +1742,6 @@ function Experiments() {
 
           ) || "f1_score";
 
-
-
         const candidateMetric =
 
           getMetricValue(
@@ -1895,8 +1752,6 @@ function Experiments() {
 
           );
 
-
-
         const modelType =
 
           stableResult?.model_type ||
@@ -1904,8 +1759,6 @@ function Experiments() {
           stableResult?.retraining?.model_type ||
 
           "unknown";
-
-
 
         const dataset =
 
@@ -1916,8 +1769,6 @@ function Experiments() {
           stableResult?.current_dataset ||
 
           "unknown";
-
-
 
         const semanticIdentity = [
 
@@ -1933,8 +1784,6 @@ function Experiments() {
 
         ].join("|");
 
-
-
         const existingIndex =
 
           previous.findIndex((item) => {
@@ -1945,15 +1794,11 @@ function Experiments() {
 
             }
 
-
-
             if (item.key === nextKey) {
 
               return true;
 
             }
-
-
 
             if (
 
@@ -1967,25 +1812,17 @@ function Experiments() {
 
             }
 
-
-
             const itemWorkflow =
 
               item.workflowResult || {};
-
-
 
             const itemCurrentMetrics =
 
               getCurrentMetrics(itemWorkflow);
 
-
-
             const itemCandidateMetrics =
 
               getCandidateMetrics(itemWorkflow);
-
-
 
             const itemPrimaryMetric =
 
@@ -2007,8 +1844,6 @@ function Experiments() {
 
               "f1_score";
 
-
-
             const itemCandidateMetric =
 
               item.candidateMetric ??
@@ -2020,8 +1855,6 @@ function Experiments() {
                 itemPrimaryMetric
 
               );
-
-
 
             const itemModelType =
 
@@ -2035,8 +1868,6 @@ function Experiments() {
 
               "unknown";
 
-
-
             const itemDataset =
 
               item.dataset ||
@@ -2048,8 +1879,6 @@ function Experiments() {
               itemWorkflow?.current_dataset ||
 
               "unknown";
-
-
 
             const itemSemanticIdentity = [
 
@@ -2075,8 +1904,6 @@ function Experiments() {
 
             ].join("|");
 
-
-
             return (
 
               itemSemanticIdentity ===
@@ -2087,15 +1914,11 @@ function Experiments() {
 
           });
 
-
-
         if (existingIndex >= 0) {
 
           const existing =
 
             previous[existingIndex];
-
-
 
           const existingNumber =
 
@@ -2106,8 +1929,6 @@ function Experiments() {
                 .replace("EXP-", "")
 
             );
-
-
 
           const updated = buildExperiment(
 
@@ -2125,8 +1946,6 @@ function Experiments() {
 
           );
 
-
-
           const next = previous.map(
 
             (item, index) =>
@@ -2139,23 +1958,15 @@ function Experiments() {
 
           );
 
-
-
           saveExperimentHistory(next);
-
-
 
           return next;
 
         }
 
-
-
         const nextIndex =
 
           getNextExperimentIndex(previous);
-
-
 
         const experiment = buildExperiment(
 
@@ -2167,8 +1978,6 @@ function Experiments() {
 
         );
 
-
-
         const next = [
 
           experiment,
@@ -2177,11 +1986,7 @@ function Experiments() {
 
         ];
 
-
-
         saveExperimentHistory(next);
-
-
 
         return next;
 
@@ -2189,11 +1994,7 @@ function Experiments() {
 
     };
 
-
-
     const initial = readWorkflowResult();
-
-
 
     if (initial) {
 
@@ -2201,15 +2002,11 @@ function Experiments() {
 
     }
 
-
-
     const handleWorkflowEvent = (event) => {
 
       recordWorkflow(event.detail);
 
     };
-
-
 
     const handleStorage = (event) => {
 
@@ -2219,11 +2016,7 @@ function Experiments() {
 
       }
 
-
-
       const latest = readWorkflowResult();
-
-
 
       if (latest) {
 
@@ -2233,8 +2026,6 @@ function Experiments() {
 
     };
 
-
-
     window.addEventListener(
 
       "driftwatcher:workflow-result",
@@ -2243,8 +2034,6 @@ function Experiments() {
 
     );
 
-
-
     window.addEventListener(
 
       "storage",
@@ -2252,8 +2041,6 @@ function Experiments() {
       handleStorage
 
     );
-
-
 
     return () => {
 
@@ -2264,8 +2051,6 @@ function Experiments() {
         handleWorkflowEvent
 
       );
-
-
 
       window.removeEventListener(
 
@@ -2278,8 +2063,6 @@ function Experiments() {
     };
 
   }, []);
-
-
 
   const experiments = useMemo(() => {
 
@@ -2298,8 +2081,6 @@ function Experiments() {
                 .replace("EXP-", "")
 
             ) - 1;
-
-
 
           return buildExperiment(
 
@@ -2327,8 +2108,6 @@ function Experiments() {
 
         }
 
-
-
         const legacyMetric =
 
           normalizeMetricName(
@@ -2337,23 +2116,15 @@ function Experiments() {
 
           ) || "f1_score";
 
-
-
         return {
 
           ...item,
 
-
-
           primaryMetric: legacyMetric,
-
-
 
           primaryMetricLabel:
 
             getMetricLabel(legacyMetric),
-
-
 
           currentMetric:
 
@@ -2361,15 +2132,11 @@ function Experiments() {
 
             item?.currentF1,
 
-
-
           candidateMetric:
 
             item?.candidateMetric ??
 
             item?.candidateF1,
-
-
 
           currentMetrics:
 
@@ -2378,8 +2145,6 @@ function Experiments() {
               f1_score: item?.currentF1,
 
             },
-
-
 
           candidateMetrics:
 
@@ -2409,8 +2174,6 @@ function Experiments() {
 
       .filter(Boolean);
 
-
-
     const current = workflowResult
 
       ? (() => {
@@ -2423,8 +2186,6 @@ function Experiments() {
 
             );
 
-
-
           const key = getExperimentKey(
 
             workflowResult,
@@ -2433,7 +2194,9 @@ function Experiments() {
 
           );
 
-
+          if (dismissedExperimentKeys.includes(key)) {
+            return null;
+          }
 
           const existing =
 
@@ -2450,8 +2213,6 @@ function Experiments() {
                     workflowTime)
 
             );
-
-
 
           const index = existing
 
@@ -2473,8 +2234,6 @@ function Experiments() {
 
               );
 
-
-
           return buildExperiment(
 
             workflowResult,
@@ -2489,15 +2248,11 @@ function Experiments() {
 
       : null;
 
-
-
     const merged = [
 
       ...normalizedHistory,
 
     ];
-
-
 
     if (current) {
 
@@ -2515,8 +2270,6 @@ function Experiments() {
 
       );
 
-
-
       if (index >= 0) {
 
         merged[index] = current;
@@ -2528,8 +2281,6 @@ function Experiments() {
       }
 
     }
-
-
 
     /*
 
@@ -2545,8 +2296,6 @@ function Experiments() {
 
     const seen = new Set();
 
-
-
     return merged.filter((item) => {
 
       if (!item) {
@@ -2554,8 +2303,6 @@ function Experiments() {
         return false;
 
       }
-
-
 
       const identity =
 
@@ -2567,15 +2314,11 @@ function Experiments() {
 
           : item.id);
 
-
-
       if (seen.has(identity)) {
 
         return false;
 
       }
-
-
 
       seen.add(identity);
 
@@ -2583,9 +2326,7 @@ function Experiments() {
 
     });
 
-  }, [history, workflowResult]);
-
-
+  }, [history, workflowResult, dismissedExperimentKeys]);
 
   const stats = useMemo(() => {
 
@@ -2593,23 +2334,17 @@ function Experiments() {
 
       total: experiments.length,
 
-
-
       completed: experiments.filter(
 
         (item) => item.completed
 
       ).length,
 
-
-
       running: experiments.filter(
 
         (item) => item.running
 
       ).length,
-
-
 
       accepted: experiments.filter(
 
@@ -2621,13 +2356,78 @@ function Experiments() {
 
   }, [experiments]);
 
-
-
   const latest =
 
     experiments[0] || null;
 
+  const deleteExperiment = (experiment) => {
+    if (!window.confirm(`Delete ${experiment.id}? This cannot be undone.`)) {
+      return;
+    }
 
+    const key = experiment.key || experiment.id;
+    const nextDismissed = [...new Set([...dismissedExperimentKeys, key])];
+
+    localStorage.setItem(
+      DISMISSED_EXPERIMENT_KEYS,
+      JSON.stringify(nextDismissed)
+    );
+    setDismissedExperimentKeys(nextDismissed);
+
+    setHistory((previous) => {
+      const next = previous.filter(
+        (item) => (item.key || item.id) !== key
+      );
+      saveExperimentHistory(next);
+      return next;
+    });
+
+    setWorkflowResult((current) =>
+      current && getExperimentKey(
+        current,
+        getWorkflowEventTime(current)
+      ) === key
+        ? null
+        : current
+    );
+  };
+
+  const deleteAllExperiments = () => {
+    if (
+      !window.confirm(
+        "Delete all experiment history? This cannot be undone."
+      )
+    ) {
+      return;
+    }
+
+    const keysToDismiss = [
+      ...experiments.map((experiment) => experiment.key || experiment.id),
+    ];
+
+    if (workflowResult) {
+      keysToDismiss.push(
+        getExperimentKey(
+          workflowResult,
+          getWorkflowEventTime(workflowResult)
+        )
+      );
+    }
+
+    const nextDismissed = [
+      ...new Set([...dismissedExperimentKeys, ...keysToDismiss]),
+    ];
+
+    localStorage.setItem(
+      DISMISSED_EXPERIMENT_KEYS,
+      JSON.stringify(nextDismissed)
+    );
+    setDismissedExperimentKeys(nextDismissed);
+
+    setHistory([]);
+    saveExperimentHistory([]);
+    setWorkflowResult(null);
+  };
 
   // Refresh only the workflow-status panel. Do not reload or modify
 
@@ -2637,19 +2437,13 @@ function Experiments() {
 
     useState(0);
 
-
-
   const [isRefreshingStatuses, setIsRefreshingStatuses] =
 
     useState(false);
 
-
-
   const [statusRefreshMessage, setStatusRefreshMessage] =
 
     useState("");
-
-
 
   const refreshWorkflowStatuses = () => {
 
@@ -2659,21 +2453,15 @@ function Experiments() {
 
     }
 
-
-
     setIsRefreshingStatuses(true);
 
     setStatusRefreshMessage("Refreshing statuses...");
-
-
 
     // Re-evaluate the workflow status panel from the latest experiment
 
     // already held in page state. This does not reload experiment history.
 
     setStatusRefreshKey((current) => current + 1);
-
-
 
     window.setTimeout(() => {
 
@@ -2685,8 +2473,6 @@ function Experiments() {
 
   };
 
-
-
   const workflowStatuses = useMemo(() => {
 
     const hasCandidateMetrics =
@@ -2694,8 +2480,6 @@ function Experiments() {
       latest?.candidateMetric !== undefined &&
 
       latest?.candidateMetric !== null;
-
-
 
     return {
 
@@ -2735,8 +2519,6 @@ function Experiments() {
 
   }, [latest, statusRefreshKey]);
 
-
-
   return (
 
     <div className="app-shell">
@@ -2759,13 +2541,9 @@ function Experiments() {
 
       <Sidebar />
 
-
-
       <main className="main-area">
 
         <Topbar title="Experiments" />
-
-
 
         <section className="dashboard-content">
 
@@ -2779,8 +2557,6 @@ function Experiments() {
 
               </h3>
 
-
-
               <p>
 
                 Track model retraining experiments,
@@ -2793,13 +2569,9 @@ function Experiments() {
 
             </div>
 
-
-
             <div className="system-status">
 
               <span className="status-dot"></span>
-
-
 
               {latest
 
@@ -2811,8 +2583,6 @@ function Experiments() {
 
           </div>
 
-
-
           <div className="kpi-grid">
 
             <div className="kpi-card">
@@ -2823,8 +2593,6 @@ function Experiments() {
 
               </div>
 
-
-
               <div>
 
                 <span>
@@ -2833,15 +2601,11 @@ function Experiments() {
 
                 </span>
 
-
-
                 <strong>
 
                   {stats.total}
 
                 </strong>
-
-
 
                 <small>
 
@@ -2857,8 +2621,6 @@ function Experiments() {
 
             </div>
 
-
-
             <div className="kpi-card">
 
               <div className="kpi-icon green">
@@ -2867,21 +2629,15 @@ function Experiments() {
 
               </div>
 
-
-
               <div>
 
                 <span>Completed</span>
-
-
 
                 <strong>
 
                   {stats.completed}
 
                 </strong>
-
-
 
                 <small className="positive">
 
@@ -2893,8 +2649,6 @@ function Experiments() {
 
             </div>
 
-
-
             <div className="kpi-card">
 
               <div className="kpi-icon orange">
@@ -2903,21 +2657,15 @@ function Experiments() {
 
               </div>
 
-
-
               <div>
 
                 <span>Running</span>
-
-
 
                 <strong>
 
                   {stats.running}
 
                 </strong>
-
-
 
                 <small>
 
@@ -2933,8 +2681,6 @@ function Experiments() {
 
             </div>
 
-
-
             <div className="kpi-card">
 
               <div className="kpi-icon purple">
@@ -2942,8 +2688,6 @@ function Experiments() {
                 <BarChart3 size={21} />
 
               </div>
-
-
 
               <div>
 
@@ -2953,15 +2697,11 @@ function Experiments() {
 
                 </span>
 
-
-
                 <strong>
 
                   {stats.accepted}
 
                 </strong>
-
-
 
                 <small className="positive">
 
@@ -2979,8 +2719,6 @@ function Experiments() {
 
           </div>
 
-
-
           <div className="panel">
 
             <div className="panel-header">
@@ -2992,8 +2730,6 @@ function Experiments() {
                   Experiment History
 
                 </h4>
-
-
 
                 <p>
 
@@ -3007,23 +2743,42 @@ function Experiments() {
 
               </div>
 
-
-
-              <span className="panel-status">
-
-                {stats.total}{" "}
-
-                {stats.total === 1
-
-                  ? "Experiment"
-
-                  : "Experiments"}
-
-              </span>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <span className="panel-status">
+                  {stats.total}{" "}
+                  {stats.total === 1 ? "Experiment" : "Experiments"}
+                </span>
+                {stats.total > 0 && (
+                  <button
+                    type="button"
+                    onClick={deleteAllExperiments}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      padding: "8px 12px",
+                      border: "1px solid #fecaca",
+                      borderRadius: "8px",
+                      background: "#fff1f2",
+                      color: "#b91c1c",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Trash2 size={14} />
+                    Delete All
+                  </button>
+                )}
+              </div>
 
             </div>
-
-
 
             {experiments.length > 0 ? (
 
@@ -3111,8 +2866,6 @@ function Experiments() {
 
                           </div>
 
-
-
                           <div>
 
                             <h4
@@ -3128,8 +2881,6 @@ function Experiments() {
                               {experiment.id}
 
                             </h4>
-
-
 
                             <p
 
@@ -3155,51 +2906,97 @@ function Experiments() {
 
                       </div>
 
-
-
-                      <span
-                        className="active-badge"
+                      <div
                         style={{
-                          background:
-                            experiment.rejected
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "10px",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <span
+                          className="active-badge"
+                          style={{
+                            background: experiment.rejected
                               ? "#fee2e2"
                               : experiment.accepted
                               ? "#dcfce7"
                               : "#eaf2ff",
-                          color:
-                            experiment.rejected
+                            color: experiment.rejected
                               ? "#b91c1c"
                               : experiment.accepted
                               ? "#15803d"
                               : "#2563eb",
-                          fontWeight: 700,
-                        }}
-                      >
-                        {experiment.status}
-                      </span>
+                            fontWeight: 700,
+                          }}
+                        >
+                          {experiment.status}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => deleteExperiment(experiment)}
+                          aria-label={`Delete ${experiment.id}`}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "5px",
+                            padding: "6px 9px",
+                            border: "1px solid #fecaca",
+                            borderRadius: "7px",
+                            background: "#fff",
+                            color: "#b91c1c",
+                            fontSize: "12px",
+                            fontWeight: 700,
+                            cursor: "pointer",
+                          }}
+                        >
+                          <Trash2 size={13} />
+                          Delete
+                        </button>
+                      </div>
 
                     </div>
 
                     {experiment.rejected && (
+
                       <div
+
                         style={{
+
                           display: "inline-flex",
+
                           alignItems: "center",
+
                           gap: "6px",
+
                           marginTop: "12px",
+
                           padding: "6px 10px",
+
                           borderRadius: "8px",
+
                           background: "#fff1f2",
+
                           color: "#be123c",
+
                           border: "1px solid #fecdd3",
+
                           fontSize: "11px",
+
                           fontWeight: 800,
+
                           letterSpacing: "0.04em",
+
                         }}
+
                       >
+
                         <span aria-hidden="true">●</span>
+
                         CANDIDATE REJECTED
+
                       </div>
+
                     )}
 
                     <div
@@ -3230,8 +3027,6 @@ function Experiments() {
 
                         </small>
 
-
-
                         <strong
 
                           style={{
@@ -3254,8 +3049,6 @@ function Experiments() {
 
                       </div>
 
-
-
                       <div>
 
                         <small>
@@ -3263,8 +3056,6 @@ function Experiments() {
                           Dataset
 
                         </small>
-
-
 
                         <strong
 
@@ -3288,8 +3079,6 @@ function Experiments() {
 
                       </div>
 
-
-
                       <div>
 
                         <small>
@@ -3297,8 +3086,6 @@ function Experiments() {
                           Trigger
 
                         </small>
-
-
 
                         <strong
 
@@ -3323,8 +3110,6 @@ function Experiments() {
                       </div>
 
                     </div>
-
-
 
                     <div
 
@@ -3368,8 +3153,6 @@ function Experiments() {
 
                         </small>
 
-
-
                         <strong
 
                           style={{
@@ -3398,8 +3181,6 @@ function Experiments() {
 
                       </div>
 
-
-
                       <div>
 
                         <small>
@@ -3413,8 +3194,6 @@ function Experiments() {
                           }
 
                         </small>
-
-
 
                         <strong
 
@@ -3444,8 +3223,6 @@ function Experiments() {
 
                       </div>
 
-
-
                       <div>
 
                         <small>
@@ -3459,8 +3236,6 @@ function Experiments() {
                           Change
 
                         </small>
-
-
 
                         <strong
 
@@ -3504,8 +3279,6 @@ function Experiments() {
 
                           )}
 
-
-
                           {experiment.displayMetricImprovement !== null &&
 
                             experiment.displayMetricImprovement !== undefined &&
@@ -3541,8 +3314,6 @@ function Experiments() {
                       </div>
 
                     </div>
-
-
 
                     <div
 
@@ -3592,8 +3363,6 @@ function Experiments() {
 
                         />
 
-
-
                         {experiment.trainingRows
 
                           ? `${formatNumber(
@@ -3605,8 +3374,6 @@ function Experiments() {
                           : "Training size not recorded"}
 
                       </span>
-
-
 
                       <span className="link-text">
 
@@ -3628,13 +3395,9 @@ function Experiments() {
 
                         />
 
-
-
                         Automated retraining
 
                       </span>
-
-
 
                       <span className="link-text">
 
@@ -3656,8 +3419,6 @@ function Experiments() {
 
                         />
 
-
-
                         {formatDateTime(
 
                           experiment.timestamp
@@ -3667,8 +3428,6 @@ function Experiments() {
                       </span>
 
                     </div>
-
-
 
                   </div>
 
@@ -3722,8 +3481,6 @@ function Experiments() {
 
                 />
 
-
-
                 <h4
 
                   style={{
@@ -3737,8 +3494,6 @@ function Experiments() {
                   No experiments recorded yet
 
                 </h4>
-
-
 
                 <p
 
@@ -3770,8 +3525,6 @@ function Experiments() {
 
           </div>
 
-
-
           <div className="panel">
 
             <div className="panel-header">
@@ -3784,8 +3537,6 @@ function Experiments() {
 
                 </h4>
 
-
-
                 <p>
 
                   DriftWatcher records the
@@ -3797,8 +3548,6 @@ function Experiments() {
                 </p>
 
               </div>
-
-
 
               <button
 
@@ -3846,8 +3595,6 @@ function Experiments() {
 
             </div>
 
-
-
             {statusRefreshMessage && (
 
               <p
@@ -3874,8 +3621,6 @@ function Experiments() {
 
             )}
 
-
-
             <div className="agent-list">
 
               <div className="agent-row">
@@ -3888,8 +3633,6 @@ function Experiments() {
 
                 </div>
 
-
-
                 <span className="active-badge">
 
                   {workflowStatuses.drift}
@@ -3897,8 +3640,6 @@ function Experiments() {
                 </span>
 
               </div>
-
-
 
               <div className="agent-row">
 
@@ -3910,8 +3651,6 @@ function Experiments() {
 
                 </div>
 
-
-
                 <span className="active-badge">
 
                   {workflowStatuses.retraining}
@@ -3919,8 +3658,6 @@ function Experiments() {
                 </span>
 
               </div>
-
-
 
               <div className="agent-row">
 
@@ -3934,8 +3671,6 @@ function Experiments() {
 
                 </div>
 
-
-
                 <span className="active-badge">
 
                   {workflowStatuses.evaluation}
@@ -3943,8 +3678,6 @@ function Experiments() {
                 </span>
 
               </div>
-
-
 
               <div className="agent-row">
 
@@ -3955,8 +3688,6 @@ function Experiments() {
                   Candidate accepted
 
                 </div>
-
-
 
                 <span className="active-badge">
 
@@ -3974,14 +3705,10 @@ function Experiments() {
 
       </main>
 
-
-
     </div>
 
   );
 
 }
-
-
 
 export default Experiments;
