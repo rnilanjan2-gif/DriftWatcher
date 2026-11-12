@@ -2272,6 +2272,19 @@ function Retraining() {
 
   const candidateModelFilename = getCandidateModelFilename(retrainingResult);
 
+  const candidateModelId =
+  getValue(retrainingResult, ["candidate_id", "candidateId"], null) ||
+  getValue(
+    workflowResult?.retraining?.retraining_result,
+    ["candidate_id", "candidateId"],
+    null
+  ) ||
+  getValue(
+    workflowResult?.retraining?.retrainingResult,
+    ["candidate_id", "candidateId"],
+    null
+  );
+
   
 const handleCandidateDownload = async () => {
   if (!candidateModelFilename || candidateDownloadState.loading) return;
@@ -2282,6 +2295,9 @@ const handleCandidateDownload = async () => {
     const response = await api.get("/download-candidate-model", {
       params: {
         filename: candidateModelFilename,
+        ...(candidateModelId
+          ? { candidate_id: candidateModelId }
+          : {}),
       },
       responseType: "blob",
     });
