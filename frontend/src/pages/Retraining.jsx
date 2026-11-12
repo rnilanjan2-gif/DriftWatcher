@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import api from "../services/api";
 
 import {
 
@@ -2271,50 +2272,64 @@ function Retraining() {
 
   const candidateModelFilename = getCandidateModelFilename(retrainingResult);
 
-  const handleCandidateDownload = async () => {
-    if (!candidateModelFilename || candidateDownloadState.loading) return;
+  
+const handleCandidateDownload = async () => {
+  if (!candidateModelFilename || candidateDownloadState.loading) return;
 
-    setCandidateDownloadState({ loading: true, error: "" });
+  setCandidateDownloadState({ loading: true, error: "" });
 
-    try {
-      const apiBaseUrl = (
-        import.meta.env.VITE_API_URL || "http://localhost:8000"
-      ).replace(/\/$/, "");
+  try {
+    const response = await api.get("/download-candidate-model", {
+      params: {
+        filename: candidateModelFilename,
+      },
+      responseType: "blob",
+    });
 
-      const response = await fetch(
-        `${apiBaseUrl}/download-candidate-model?filename=${encodeURIComponent(candidateModelFilename)}`
-      );
+    const blob = response.data;
+    const downloadUrl = window.URL.createObjectURL(blob);
 
-      if (!response.ok) {
-        let message = "Candidate model download failed.";
-        try {
-          const errorData = await response.json();
-          message = errorData.detail || message;
-        } catch {
-          // Keep the default message when the response is not JSON.
-        }
-        throw new Error(message);
-      }
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download =
+      candidateModelFilename.replace(/\.joblib$/i, "") + "_artifacts.zip";
 
-      const blob = await response.blob();
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = downloadUrl;
-      link.download =
-        candidateModelFilename.replace(/\.joblib$/i, "") + "_artifacts.zip";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    setTimeout(() => {
       window.URL.revokeObjectURL(downloadUrl);
-      setCandidateDownloadState({ loading: false, error: "" });
-    } catch (error) {
-      console.error("Candidate model download failed:", error);
-      setCandidateDownloadState({
-        loading: false,
-        error: error.message || "Unable to download the candidate model.",
-      });
+    }, 1000);
+
+    setCandidateDownloadState({ loading: false, error: "" });
+
+  } catch (error) {
+    console.error("Candidate model download failed:", error);
+
+    let message = "Candidate model download failed.";
+
+    if (error.response?.data instanceof Blob) {
+      try {
+        const errorText = await error.response.data.text();
+        const errorData = JSON.parse(errorText);
+        message = errorData.detail || message;
+      } catch {
+        // Keep default message.
+      }
+    } else {
+      message = error.response?.data?.detail ||
+        error.message ||
+        message;
     }
-  };
+
+    setCandidateDownloadState({
+      loading: false,
+      error: message,
+    });
+  }
+};
+
 
   const trainingSamples =
 
