@@ -18,7 +18,7 @@ import {
 import { NavLink } from "react-router-dom";
 
 const navigation = [
-  { label: "Dashboard", path: "/", icon: Gauge },
+  { label: "Dashboard", path: "/dashboard", icon: Gauge },
   { label: "Models", path: "/models", icon: Layers3 },
   { label: "Upload & Datasets", path: "/upload", icon: Upload },
   { label: "Data Stream", path: "/data-stream", icon: Activity },

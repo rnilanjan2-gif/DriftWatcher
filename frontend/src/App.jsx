@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { useEffect } from "react";
 
 import Dashboard from "./pages/Dashboard";
@@ -14,9 +15,19 @@ import Reports from "./pages/Reports";
 import Alerts from "./pages/Alerts";
 import Experiments from "./pages/Experiments";
 
+import Login from "./auth/Login";
+
 import { healthCheck } from "./services/api";
 
 import "./App.css";
+
+// Protect all application pages
+function RequireDemoLogin() {
+  const isLoggedIn =
+    sessionStorage.getItem("driftwatcher_demo_login") === "true";
+
+  return isLoggedIn ? <Outlet /> : <Navigate to="/login" replace />;
+}
 
 function App() {
   useEffect(() => {
@@ -33,29 +44,42 @@ function App() {
     <BrowserRouter>
       <Routes>
 
-        <Route path="/" element={<Dashboard />} />
+        {/* Public Login Page */}
+        <Route path="/login" element={<Login />} />
 
-        <Route path="/models" element={<Models />} />
+        {/* Protected Application Pages */}
+        <Route element={<RequireDemoLogin />}>
 
-        <Route path="/upload" element={<UploadDatasets />} />
+          <Route path="/" element={<Navigate to="/upload" replace />} />
 
-        <Route path="/data-stream" element={<DataStream />} />
+          <Route path="/dashboard" element={<Dashboard />} />
 
-        <Route path="/drift-detection" element={<DriftDetection />} />
+          <Route path="/models" element={<Models />} />
 
-        <Route path="/ai-agents" element={<AIAgents />} />
+          <Route path="/upload" element={<UploadDatasets />} />
 
-        <Route path="/root-cause" element={<RootCause />} />
+          <Route path="/data-stream" element={<DataStream />} />
 
-        <Route path="/retraining" element={<Retraining />} />
+          <Route path="/drift-detection" element={<DriftDetection />} />
 
-        <Route path="/deployment" element={<Deployment />} />
+          <Route path="/ai-agents" element={<AIAgents />} />
 
-        <Route path="/reports" element={<Reports />} />
+          <Route path="/root-cause" element={<RootCause />} />
 
-        <Route path="/alerts" element={<Alerts />} />
+          <Route path="/retraining" element={<Retraining />} />
 
-        <Route path="/experiments" element={<Experiments />} />
+          <Route path="/deployment" element={<Deployment />} />
+
+          <Route path="/reports" element={<Reports />} />
+
+          <Route path="/alerts" element={<Alerts />} />
+
+          <Route path="/experiments" element={<Experiments />} />
+
+        </Route>
+
+        {/* Unknown routes */}
+        <Route path="*" element={<Navigate to="/" replace />} />
 
       </Routes>
     </BrowserRouter>
